@@ -1,0 +1,11 @@
+algorithm/.vs/
+algorithm/Debug/
+algorithm/Release/
+algorithm/x64/
+
+algorithm/algorithm/Debug/
+algorithm/algorithm/Release/
+algorithm/algorithm/x64/
+*.user
+
+*.test
