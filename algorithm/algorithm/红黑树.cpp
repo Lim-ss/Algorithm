@@ -8,10 +8,14 @@ public:
 	RBT();
 	void Insert(int value);
 	void Delete(int value);
+	int Search(int value);
+	int Rank(int value);
+	int Precursor(int value);
+	int Successor(int value);
 	void Print();
 
 private:
-	enum Color;
+	enum class Color;
 	struct Node;
 
 	void PreOrderTraverse(Node* node, std::function<void(Node*)> func);
@@ -21,11 +25,10 @@ private:
 	void Adjust(Node* node, bool leftLack);
 	void Delete(Node* node);
 
-	int size;
 	Node* root;
 
 };
-enum RBT::Color
+enum class RBT::Color
 {
 	Red = 0,
 	Black = 1,
@@ -35,18 +38,24 @@ struct RBT::Node
 {
 	Color color;
 	int element;
+	int size;//所在子树的大小
 	Node* parent;
 	Node* lchild;
 	Node* rchild;
+
 	Node(int element, Node* parent);
 	inline void InvertColor();
 	inline static void ExchangeColor(Node* n1, Node* n2);
+	inline void Resize();
+	inline int Lsize();
+	inline int Rsize();
 };
 
 //默认构造红节点
 RBT::Node::Node(int element, Node* parent)
 	:color(Color::Red),
 	element(element),
+	size(1),
 	parent(parent),
 	lchild(nullptr),
 	rchild(nullptr)
@@ -66,9 +75,29 @@ void RBT::Node::ExchangeColor(Node* n1, Node* n2)
 	n2->color = c;
 }
 
+//根据左右孩子的信息重新计算该子树的大小
+void RBT::Node::Resize()
+{
+	size = 1;
+	if (lchild != nullptr)
+		size += lchild->size;
+	if (rchild != nullptr)
+		size += rchild->size;
+	return;
+}
+
+int RBT::Node::Lsize()
+{
+	return (lchild == nullptr) ? 0 : lchild->size;
+}
+
+int RBT::Node::Rsize()
+{
+	return (rchild == nullptr) ? 0 : rchild->size;
+}
+
 RBT::RBT()
-	:size(0),
-	root(nullptr)
+	:root(nullptr)
 {
 
 }
@@ -79,6 +108,7 @@ void RBT::Insert(int value)
 	Node* previous = nullptr;
 	while (n != nullptr)
 	{
+		n->size++;
 		previous = n;
 		if (value < n->element)
 			n = n->lchild;
@@ -103,7 +133,6 @@ void RBT::Insert(int value)
 			Balance(previous->rchild);
 		}
 	}
-	size++;
 }
 
 void RBT::Delete(int value)
@@ -121,12 +150,139 @@ void RBT::Delete(int value)
 	return;
 }
 
+//查询整数value的位次（位次定义为比当前数小的数的个数+1）,可见如果value不存在返回1
+int RBT::Search(int value)
+{
+	if (root == nullptr)
+	{
+		return 1;
+	}
+	Node* n = root;
+	int rank = root->Lsize();//rank始终更新n左侧的元素的数量（不等于位次）
+	while (n != nullptr && n->element != value)
+	{
+		if (value < n->element)
+		{
+			n = n->lchild;
+			if (n != nullptr)
+			{
+				rank -= n->size;
+				rank += n->Lsize();
+			}
+		}
+		else
+		{
+			n = n->rchild;
+			rank++;
+			if (n != nullptr)
+				rank += n->Lsize();
+		}
+	}
+	if (n == nullptr)
+	{
+		//没找到value
+		return rank + 1;
+	}
+	else
+	{
+		//找到了value，但还需要确保是相同的数里最左边的一个、
+		while (n->lchild != nullptr && n->lchild->element == value)
+		{
+			n = n->lchild;
+			rank -= n->size;
+			rank += n->Lsize();
+		}
+		return rank + 1;
+	}
+}
+
+//查询排名为rank的数，如果不存在，则认为是排名小于rank的最大数，不考虑空树的情况
+int RBT::Rank(int rank)
+{
+	if (root == nullptr)
+	{
+		return 0;//不考虑这种情况
+	}
+	Node* n = root;
+	int num = root->Lsize();//num始终更新n左侧的元素的数量（不等于位次）
+	while (1)
+	{
+		if (num == rank - 1)
+		{
+			return n->element;
+		}
+		else if (num > rank - 1)
+		{
+			n = n->lchild;
+			num -= n->size;
+			num += n->Lsize();
+		}
+		else//(num < rank - 1)
+		{
+			n = n->rchild;
+			num++;
+			num += n->Lsize();
+		}
+	}
+}
+
+//求value的前驱（小于value的最大数），不考虑不存在的情况
+int RBT::Precursor(int value)
+{
+	int rank = Search(value);
+	return Rank(rank - 1);
+}
+
+//求value的后继（大于value的最小数），不考虑不存在的情况
+int RBT::Successor(int value)
+{
+	//这一大段大致和search一样
+	//不同的是找到的是同样大小元素的最后一个的位置
+	Node* n = root;
+	int rank = root->Lsize();//rank始终更新n左侧的元素的数量（不等于位次）
+	while (n != nullptr && n->element != value)
+	{
+		if (value < n->element)
+		{
+			n = n->lchild;
+			if (n != nullptr)
+			{
+				rank -= n->size;
+				rank += n->Lsize();
+			}
+		}
+		else
+		{
+			n = n->rchild;
+			rank++;
+			if (n != nullptr)
+				rank += n->Lsize();
+		}
+	}
+	if (n == nullptr)
+	{
+		//没找到value
+		return Rank(rank + 1);
+	}
+	else
+	{
+		//找到了value，但还需要确保是相同的数里最 <右> 边的一个
+		while (n->rchild != nullptr && n->rchild->element == value)
+		{
+			n = n->rchild;
+			rank++;
+			rank += n->Lsize();
+		}
+		return Rank(rank + 2);
+	}
+}
+
 //for debug
-//顺序输出所有元素
+//顺序输出所有元素，及其子树大小
 void RBT::Print()
 {
 	printf("RBT: ");
-	PreOrderTraverse(root, [](Node* node) {printf("%d ", node->element);});
+	PreOrderTraverse(root, [](Node* node) {printf("%d(%d) ", node->element, node->size);});
 	printf("\n");
 }
 
@@ -172,6 +328,10 @@ void RBT::LeftRotate(Node* node)
 		n3->parent = n1;
 	}
 	n1->rchild = n3;
+	//更新树的size
+	n1->Resize();
+	n2->Resize();
+	return;
 }
 
 //右旋，要求node及其左孩子非空
@@ -204,12 +364,16 @@ void RBT::RightRotate(Node* node)
 		n3->parent = n1;
 	}
 	n1->lchild = n3;
+	//更新子树的size
+	n1->Resize();
+	n2->Resize();
+	return;
 }
 
 //处理由于红节点node(插入或涂色)而破坏的平衡,node不可能是root
 void RBT::Balance(Node* node)
 {
-	if (node->parent->color == Black)
+	if (node->parent->color == Color::Black)
 	{
 		//情况1，父节点为黑色
 		//do nothing
@@ -220,7 +384,7 @@ void RBT::Balance(Node* node)
 		Node* parent = node->parent;
 		Node* grand = parent->parent;
 		Node* uncle = (grand->lchild == parent) ? grand->rchild : grand->lchild;
-		if (uncle != nullptr && uncle->color == Red)
+		if (uncle != nullptr && uncle->color == Color::Red)
 		{
 			//情况2，父节点和叔节点都为红色
 			parent->InvertColor();
@@ -288,14 +452,15 @@ void RBT::Adjust(Node* node, bool leftLack)
 	//如果不行再考虑给满侧去掉一层黑，使得两侧平衡，但此时整棵局部树就少了一层，则需要对上一层递归调用
 	//注意以上操作中，如果该局部树的根原本是黑的，则最终局部根也只能是黑的
 	//这样可以防止涂红导致与局部树的上层冲突（连续两红），或者无法继续递归（因为该函数要求缺失侧的孩子一定是黑节点）
+	//有时候n3、n4可能是nullptr，虽然可以直接当黑节点对待，但是代码里需要特殊判断处理
 
 	if (leftLack == true)
 	{
 		Node* n0 = node;
 		Node* n1 = node->lchild;//缺侧
 		Node* n2 = node->rchild;//满侧
-		Node* n3 = n2->rchild;//满侧远侧孙节点
-		Node* n4 = n2->lchild;//满侧近侧孙节点
+		Node* n3 = n2->rchild;//满侧远侧孙节点，可能为nullptr
+		Node* n4 = n2->lchild;//满侧近侧孙节点，可能为nullptr
 
 		//情况1：满侧孩子为红节点
 		//大致思路是利用旋转将满侧红节点的一颗子树转给缺侧，此时又会造成缺侧内部不平衡，需要递归
@@ -307,7 +472,7 @@ void RBT::Adjust(Node* node, bool leftLack)
 			Adjust(n0, true);
 		}
 		//情况2、3：满侧孩子为黑节点，且其两个子节点均为黑节点
-		else if (n3->color == Color::Black && n4->color == Color::Black)
+		else if ((n3 == nullptr || n3->color == Color::Black) && (n4 == nullptr || n4->color == Color::Black))
 		{
 			//情况2：局部根为红节点
 			//直接改色即可平衡
@@ -340,7 +505,7 @@ void RBT::Adjust(Node* node, bool leftLack)
 			//情况4：远侧孙节点为红节点
 			//通过旋转增加缺侧一层黑，并维持局部根颜色不变，满侧少的一层黑由远侧孙节点变黑补回来
 			//可总体平衡
-			if (n3->color = Color::Red)
+			if (n3 != nullptr && n3->color == Color::Red)
 			{
 				LeftRotate(n0);
 				RBT::Node::ExchangeColor(n0, n2);
@@ -375,7 +540,7 @@ void RBT::Adjust(Node* node, bool leftLack)
 			Adjust(n0, false);
 		}
 		//情况2、3：满侧孩子为黑节点，且其两个子节点均为黑节点
-		else if (n3->color == Color::Black && n4->color == Color::Black)
+		else if ((n3 == nullptr || n3->color == Color::Black) && (n4 == nullptr || n4->color == Color::Black))
 		{
 			//情况2：局部根为红节点
 			//直接改色即可平衡
@@ -409,7 +574,7 @@ void RBT::Adjust(Node* node, bool leftLack)
 			//情况4：远侧孙节点为红节点
 			//通过旋转增加缺侧一层黑，并维持局部根颜色不变，满侧少的一层黑由远侧孙节点变黑补回来
 			//可总体平衡
-			if (n3->color = Color::Red)
+			if (n3 != nullptr && n3->color == Color::Red)
 			{
 				RightRotate(n0);
 				RBT::Node::ExchangeColor(n0, n2);
@@ -444,6 +609,15 @@ void RBT::Delete(Node* node)
 	}
 
 	//可以直接删除，分两大类
+	
+	//修改size，对所有情况适用
+	Node* p = node->parent;
+	while (p != nullptr)
+	{
+		p->size--;
+		p = p->parent;
+	}
+
 	//第一大类：删除红节点，或删除黑节点，但其有红色子节点，较为简单
 
 	//注意，child可能为nullptr
@@ -495,12 +669,12 @@ void RBT::Delete(Node* node)
 		if (node->parent->lchild == node)
 		{
 			node->parent->lchild = child;
-			Adjust(child->parent, true);
+			Adjust(node->parent, true);
 		}
 		else
 		{
 			node->parent->rchild = child;
-			Adjust(child->parent, false);
+			Adjust(node->parent, false);
 		}
 	}
 	delete node;
@@ -509,23 +683,50 @@ void RBT::Delete(Node* node)
 
 int main()
 {
-	//test
+	int n, m, type;
+	scanf("%d%d%d", &n, &m, &type);
 	RBT tree;
-	tree.Insert(10);
-	tree.Insert(7);
-	tree.Insert(-4);
-	tree.Insert(0);
-	tree.Insert(17);
-	tree.Insert(988);
-	tree.Insert(100);
-	tree.Insert(20);
+	for (int i = 0;i < n;i++)
+	{
+		int x;
+		scanf("%d", &x);
+		tree.Insert(x);
+	}
+	int last = 0;
+	int answer = 0;
+	for (int i = 0;i < m;i++)
+	{
+		int x, y;
+		scanf("%d%d", &x, &y);
+		y = y ^ last;
+		switch (x)
+		{
+		case 1:
+			tree.Insert(y);
+			break;
+		case 2:
+			tree.Delete(y);
+			break;
+		case 3:
+			last = tree.Search(y);
+			answer = answer ^ last;
+			break;
+		case 4:
+			last = tree.Rank(y);
+			answer = answer ^ last;
+			break;
+		case 5:
+			last = tree.Precursor(y);
+			answer = answer ^ last;
+			break;
+		case 6:
+			last = tree.Successor(y);
+			answer = answer ^ last;
+			break;
+		default:
+			break;
+		}
+	}
 
-	tree.Delete(7);
-	tree.Delete(988);
-	tree.Delete(100);
-	tree.Delete(222);
-	tree.Delete(444);
-
-	tree.Print();
-
+	printf("%d", answer);
 }
