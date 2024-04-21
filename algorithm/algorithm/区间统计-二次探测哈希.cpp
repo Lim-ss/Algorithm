@@ -37,7 +37,6 @@ HashMap::HashMap(int size)
 void HashMap::Edit(int key, int value)
 {
 	int hash = Hash(key);
-	int t = 1;
 	while (arr[hash] != nullptr)
 	{
 		if (arr[hash]->key == key)
@@ -57,7 +56,6 @@ void HashMap::Edit(int key, int value)
 void HashMap::Add(int key)
 {
 	int hash = Hash(key);
-	int t = 1;
 	while (arr[hash] != nullptr)
 	{
 		if (arr[hash]->key == key)
@@ -77,7 +75,6 @@ void HashMap::Add(int key)
 int HashMap::Find(int key)
 {
 	int hash = Hash(key);
-	int t = 1;
 	while (arr[hash] != nullptr)
 	{
 		if (arr[hash]->key == key)
@@ -125,7 +122,7 @@ int main()
 
 	//Í³¼Æ
 	long long num = 0;
-	HashMap map(1000000);
+	HashMap map(100000000);
 	map.Add(B[0]);
 	for (int l2 = 1;l2 < n;l2++)
 	{
